@@ -3,7 +3,6 @@ import 'package:madistock/constants/app_colors.dart';
 import 'package:madistock/views/dashboard.dart';
 import 'package:madistock/views/product.dart';
 import 'package:madistock/views/sells.dart';
-import 'package:madistock/views/sells.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});

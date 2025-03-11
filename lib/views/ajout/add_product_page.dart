@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:madistock/api/database_helper.dart';
 import 'package:madistock/constants/app_colors.dart';
 import 'package:madistock/widgets/dropdown_button.dart';
+import 'package:madistock/widgets/image_picker.dart';
 import 'package:madistock/widgets/text_input_field.dart';
+import 'package:madistock/models/category_model.dart';
+import 'package:flutter_sizer/flutter_sizer.dart';
 
 class AddProductPage extends StatefulWidget {
   const AddProductPage({super.key});
@@ -12,16 +18,30 @@ class AddProductPage extends StatefulWidget {
 
 class _AddProductPageState extends State<AddProductPage> {
   final _formKey = GlobalKey<FormState>();
-
-  // Contrôleurs pour les champs de texte
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
   final _sellingPriceController = TextEditingController();
   final _factoryPriceController = TextEditingController();
 
-  // Variable d'état pour la catégorie
   String? _selectedCategory;
+  List<Category> _categories = [];
+  String? _imagePath;
+  bool _isLoading = false;
+
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final categoriesData = await DatabaseHelper().getCategories();
+    setState(() {
+      _categories = categoriesData.map((category) => Category.fromMap(category)).toList();
+    });
+  }
 
   void _resetForm() {
     _nameController.clear();
@@ -31,7 +51,96 @@ class _AddProductPageState extends State<AddProductPage> {
     _factoryPriceController.clear();
     setState(() {
       _selectedCategory = null;
+      _imagePath = null;
     });
+  }
+
+  Future<void> _handleSubmit() async {
+    if (_isLoading) return;
+    _isLoading = true;
+    EasyLoading.show(status: 'Chargement...');
+
+    try {
+      if (!_formKey.currentState!.validate()) {
+        EasyLoading.showError('Veuillez remplir tous les champs correctement !');
+        return;
+      }
+
+      final factoryPrice = int.parse(_factoryPriceController.text.replaceAll(' ', ''));
+      final sellingPrice = int.parse(_sellingPriceController.text.replaceAll(' ', ''));
+      final profit = sellingPrice - factoryPrice;
+      final quantity = int.parse(_quantityController.text.replaceAll(' ', ''));
+      final initialProfit = profit * quantity;
+
+      if (_imagePath == null || _selectedCategory == null) {
+        EasyLoading.showError('Veuillez sélectionner une image et une catégorie.');
+        return;
+      }
+
+      await DatabaseHelper().insertProduct({
+        'name': _nameController.text,
+        'description': _descriptionController.text,
+        'quantity': quantity,
+        'initial_quantity': quantity,
+        'factory_price': factoryPrice,
+        'selling_price': sellingPrice,
+        'profit': profit,
+        'category_id': int.parse(_selectedCategory!),
+        'image_path': _imagePath,
+        'initial_profit': initialProfit,
+      });
+
+      EasyLoading.showSuccess('Produit ajouté avec succès !');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Produit ajouté avec succès !'),
+          backgroundColor: greenColor,
+        ),
+      );
+
+      _resetForm();
+    } catch (e) {
+      print('Erreur : $e');
+      EasyLoading.showError('Erreur lors de l\'ajout. Réessayez.');
+    } finally {
+      _isLoading = false;
+    }
+  }
+
+
+  String _formatCurrency(String value) {
+    var cleanedValue = value.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (cleanedValue.length > 6) {
+      cleanedValue = cleanedValue.substring(0, 6);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Limite atteinte !"),
+          backgroundColor: redColor,
+        ),
+      );
+    }
+
+    final formattedValue = _formatWithSpaces(cleanedValue);
+    return formattedValue;
+  }
+
+  String _formatWithSpaces(String value) {
+    if (value.length <= 3) {
+      return value;
+    }
+
+    final buffer = StringBuffer();
+    int count = 0;
+    for (int i = value.length - 1; i >= 0; i--) {
+      buffer.write(value[i]);
+      count++;
+      if (count % 3 == 0 && i > 0) {
+        buffer.write(' ');
+      }
+    }
+
+    return buffer.toString().split('').reversed.join('');
   }
 
   @override
@@ -43,216 +152,97 @@ class _AddProductPageState extends State<AddProductPage> {
             Icons.arrow_back_ios_new_rounded,
             color: whiteColor,
           ),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Ajouter un produit',
-              style: TextStyle(color: whiteColor),
-            ),
-            CircleAvatar(
-              backgroundColor: whiteColor,
-              radius: 20,
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/logo.png',
-                  width: 30,
-                  height: 30,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ],
+        centerTitle: true,
+        title: Text(
+          'Ajouter un produit',
+          textAlign:TextAlign.center,
+          style: TextStyle(color: whiteColor, fontSize: 20.dp),
         ),
         backgroundColor: ccaColor,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.symmetric(horizontal: 4.w),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              const Center(
-                  child: Text(
-                      "Veuillez renseigner les informations sur le produit que vous souhaitez ajouter",
-                    style: TextStyle(fontSize: 17),
-                  ),
+              Center(child: _buildSectionTitle("Ajouter une image du produit")),
+              Center(
+                child: ImagePickerWidget(
+                  onImageSelected: (imagePath) => setState(() => _imagePath = imagePath),
+                ),
               ),
-              const SizedBox(height: 16,),
-
-              // Champ : Nom du produit
-              InputField(
-                onTap: () {},
-                onChange: () {},
-                focus: true,
-                prefixIcon: Icons.sell_rounded,
-                hint: "Nom de l'article",
-                controller: _nameController,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer le nom de l\'article';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Champ : Description
-              InputField(
-                onTap: () {},
-                onChange: () {},
-                focus: true,
-                prefixIcon: Icons.description_rounded,
-                hint: "Description",
-                controller: _descriptionController,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer une description';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Champ : Quantité en stock
-              InputField(
-                onTap: () {},
-                onChange: () {},
-                focus: true,
-                prefixIcon: Icons.numbers_rounded,
-                hint: "Quantité à stocker",
-                controller: _quantityController,
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer la quantité';
-                  }
-                  if (int.tryParse(value) == null || int.parse(value) < 0) {
-                    return 'Veuillez entrer une quantité valide';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Champ : Prix d'usine
-              InputField(
-                onTap: () {},
-                onChange: () {},
-                focus: true,
-                prefixIcon: Icons.money_rounded,
-                hint: "Prix d\'usine",
-                controller: _factoryPriceController,
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer le prix d\'usine';
-                  }
-                  if (double.tryParse(value) == null || double.parse(value) < 0) {
-                    return 'Veuillez entrer un prix valide';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Champ : Prix de vente
-              InputField(
-                onTap: () {},
-                onChange: () {},
-                focus: true,
-                prefixIcon: Icons.money_rounded,
-                hint: "Prix de vente",
-                controller: _sellingPriceController,
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer le prix unitaire';
-                  }
-                  if (double.tryParse(value) == null || double.parse(value) < 0) {
-                    return 'Veuillez entrer un prix valide';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Champ : Catégorie (Dropdown)
+              SizedBox(height: 2.h),
+              _buildSectionTitle("Choisissez la catégorie"),
               DropdownField<String>(
                 focus: true,
                 hint: "Choisir une catégorie",
                 prefixIcon: Icons.category_rounded,
-                items: const [
-                  DropdownMenuItem(
-                    value: "",
-                    child: Text("Choisir une catégorie"),
-                  ),
-                  DropdownMenuItem(
-                    value: "Option 1",
-                    child: Text("Option 1"),
-                  ),
-                  DropdownMenuItem(
-                    value: "Option 2",
-                    child: Text("Option 2"),
-                  ),
-                  DropdownMenuItem(
-                    value: "Option 3",
-                    child: Text("Option 3"),
-                  ),
-                ],
+                items: _categories.map((category) => DropdownMenuItem(
+                  value: category.id.toString(),
+                  child: Text(category.name),
+                )).toList(),
                 value: _selectedCategory,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return "Veuillez sélectionner une catégorie";
-                  }
-                  return null;
-                },
+                onChanged: (value) => setState(() => _selectedCategory = value),
+                validator: (value) => value == null || value.isEmpty ? "Veuillez sélectionner une catégorie" : null,
               ),
-              const SizedBox(height: 60),
-
-              // Bouton : Soumettre
+              SizedBox(height: 2.h),
+              _buildSectionTitle("Nom de l'article"),
+              _buildInputField(
+                _nameController,
+                "Nom de l'article",
+                Icons.sell_rounded,
+              ),
+              _buildSectionTitle("Description de l'article"),
+              _buildInputField(
+                _descriptionController,
+                "Description", Icons.description_rounded,
+              ),
+              _buildSectionTitle("Quantité à stocker"),
+              _buildInputField(
+                _quantityController,
+                "Quantité à stocker",
+                Icons.numbers_rounded,
+                isNumber: true,
+              ),
+              _buildSectionTitle("Prix de l'usine"),
+              _buildInputField(
+                _factoryPriceController,
+                "Prix d'usine",
+                Icons.money_rounded,
+                isNumber: true,
+              ),
+              _buildSectionTitle("Prix de vente"),
+              _buildInputField(
+                _sellingPriceController,
+                "Prix de vente",
+                Icons.money_rounded,
+                isNumber: true,
+              ),
+              SizedBox(height: 3.h),
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // Afficher les données dans la console
-                    final newProduct = {
-                      'name': _nameController.text,
-                      'description': _descriptionController.text,
-                      'quantity': int.parse(_quantityController.text),
-                      'factoryPrice': int.parse(_factoryPriceController.text),
-                      'sellingPrice': int.parse(_sellingPriceController.text),
-                      'category': _selectedCategory,
-                    };
-
-                     print("Produit ajouté : $newProduct");
-
-                    // Affiche un message de succès
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Produit ajouté avec succès !'),
-                      ),
-                    );
-                    _resetForm();
-                  }
-                },
+                onPressed: _isLoading ? null : _handleSubmit,
                 style: ElevatedButton.styleFrom(
                   foregroundColor: whiteColor,
                   backgroundColor: ccaColor,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(200),
+                    borderRadius: BorderRadius.circular(50),
                   ),
+                  padding: EdgeInsets.symmetric(vertical: 1.h),
                 ),
-                child: const Text('Ajouter'),
+                child: _isLoading
+                    ? const SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(
+                    color: whiteColor,
+                    strokeWidth: 2,
+                  ),
+                )
+                    : Text('Ajouter', style: TextStyle(fontSize: 16.dp)),
               ),
+              SizedBox(height: 3.h),
             ],
           ),
         ),
@@ -260,9 +250,49 @@ class _AddProductPageState extends State<AddProductPage> {
     );
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 1.h),
+      child: Text(
+        title,
+        style: TextStyle(fontSize: 15.dp, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildInputField(TextEditingController controller, String hint, IconData icon, {bool isNumber = false}) {
+    return InputField(
+      onTap: () {},
+      onChange: (value) {
+        if (isNumber) {
+          controller.value = controller.value.copyWith(
+            text: _formatCurrency(value),
+            selection: TextSelection.collapsed(offset: _formatCurrency(value).length),
+          );
+        }
+      },
+      focus: true,
+      prefixIcon: icon,
+      hint: hint,
+      controller: controller,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Veuillez entrer $hint';
+        if (isNumber) {
+          try {
+            int.parse(value.replaceAll(' ', ''));
+          } catch (e) {
+            return 'Veuillez entrer un nombre valide';
+          }
+        }
+        return null;
+      },
+    );
+  }
+
+
   @override
   void dispose() {
-    // Libère les ressources utilisées par les contrôleurs
     _nameController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();

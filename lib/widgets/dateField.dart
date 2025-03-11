@@ -1,37 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/src/services/text_formatter.dart';
 import 'package:madistock/constants/app_colors.dart';
 
-class InputField extends StatefulWidget {
-  const InputField({
+class DateField extends StatefulWidget {
+  const DateField({
     super.key,
     required this.onTap,
     required this.focus,
+    required this.enable,
     required this.hint,
     required this.controller,
     required this.onChange,
     this.correct,
     this.prefixIcon,
-    this.validator,
+    this.maxLines = 1,
     this.keyboardType,
-    List<TextInputFormatter>? inputFormatters,
+    required bool readOnly,
   });
 
   final bool focus;
   final String hint;
   final TextEditingController controller;
   final VoidCallback onTap;
-  final ValueChanged<String>? onChange;
+  final VoidCallback onChange;
   final bool? correct;
   final IconData? prefixIcon;
-  final String? Function(String?)? validator;
+  final int maxLines;
   final TextInputType? keyboardType;
+  final bool enable;
 
   @override
-  State<InputField> createState() => _InputFieldState();
+  State<DateField> createState() => _DateFieldState();
 }
 
-class _InputFieldState extends State<InputField> {
+class _DateFieldState extends State<DateField> {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -48,12 +49,14 @@ class _InputFieldState extends State<InputField> {
         )
             : null,
       ),
-      child: TextFormField(
+      child: TextField(
         controller: widget.controller,
+        enabled: widget.enable,
         onTap: widget.onTap,
         onChanged: (value) {
-          widget.onChange!(value);
+          widget.onChange();
         },
+        maxLines: widget.maxLines,
         keyboardType: widget.keyboardType ?? TextInputType.text,
         style: const TextStyle(
           color: blackColor,
@@ -65,7 +68,14 @@ class _InputFieldState extends State<InputField> {
               ? Icon(
             widget.prefixIcon,
             color: ccaColor,
-          ) : null,
+          )
+              : null,
+          suffixIcon: widget.correct == true
+              ? const Icon(
+            Icons.done,
+            color: ccaColor,
+          )
+              : null,
           fillColor: whiteColor,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
@@ -83,7 +93,6 @@ class _InputFieldState extends State<InputField> {
             fontSize: 15,
           ),
         ),
-        validator: widget.validator,
       ),
     );
   }
