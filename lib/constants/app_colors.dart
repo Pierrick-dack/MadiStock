@@ -10,3 +10,4 @@ const Color greenColor = Colors.green;
 const Color blackColor = Colors.black87;
 const Color yellowColor = Colors.yellowAccent;
 const Color redColor = Colors.redAccent;
+Color? red2Color = Colors.red[300];

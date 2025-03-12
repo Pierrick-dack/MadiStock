@@ -22,13 +22,15 @@ class _DashboardPageState extends State<DashboardPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int totalProducts = 0;
   int criticalStock = 0;
+  int totalSales = 0;
   List<Map<String, dynamic>> mostSoldProducts = [];
   List<Map<String, dynamic>> sellsByCategory = [];
-  //Map<String, int> topSellingProducts = {};
-  //Map<String, int> sellsByCategory = {};
+  List<Map<String, dynamic>> criticalProducts = [];
+  String mostSoldProductName = 'Aucun produit vendu';
+  int mostSoldProductQuantity = 0;
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     loadDashboardData();
   }
@@ -41,7 +43,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
     setState(() {
       totalProducts = products.length;
-      criticalStock = products.where((p) => (p['quantity'] ?? 0) < 5).length;
+      criticalProducts = products.where((p) => (p['quantity'] ?? 0) < 5).toList();
+      criticalStock = criticalProducts.length;
+      totalSales = sales.length;
 
       mostSoldProducts = sales.map((sale) {
         return {
@@ -56,8 +60,45 @@ class _DashboardPageState extends State<DashboardPage> {
           'sales': (cat['id'] ?? 0).toInt(),
         };
       }).toList();
+
+      // Déterminer le produit le plus vendu
+      if (mostSoldProducts.isNotEmpty) {
+        Map<String, int> productSales = {};
+        for (var sale in mostSoldProducts) {
+          if (productSales.containsKey(sale['product'])) {
+            productSales[sale['product']] = productSales[sale['product']]! + (sale['quantity'] as int); // Conversion explicite
+          } else {
+            productSales[sale['product']] = sale['quantity'] as int;
+          }
+        }
+
+        String topProduct = productSales.keys.reduce((a, b) => productSales[a]! > productSales[b]! ? a : b);
+        mostSoldProductName = topProduct;
+        mostSoldProductQuantity = productSales[topProduct]!;
+      }
     });
   }
+
+  void _showCriticalStockBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      backgroundColor: red2Color,
+      context: context,
+      builder: (BuildContext context) {
+        return ListView.builder(
+          itemCount: criticalProducts.length,
+          itemBuilder: (context, index) {
+            final product = criticalProducts[index];
+            return ListTile(
+              textColor: whiteColor,
+              title: Text(product['name']),
+              subtitle: Text('Quantité: ${product['quantity']}'),
+            );
+          },
+        );
+      },
+    );
+  }
+
 
 
   @override
@@ -65,7 +106,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: CustomAppBar(
-        title: "MadiStock - Tableau de Bord",
+        title: "MadiStock - Tableau de bord",
         scaffoldKey: _scaffoldKey,
       ),
       drawer: const AppDrawer(),
@@ -76,9 +117,9 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             // Titre principal
             Text(
-              'Welcome !',
+              'Bienvenue Madison !',
               style: TextStyle(
-                fontSize: 24.dp, // Taille de police responsive
+                fontSize: 24.dp,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -88,9 +129,25 @@ class _DashboardPageState extends State<DashboardPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildDashboardCard('Produits stockés', '$totalProducts', Icons.inventory, Colors.green),
-                _buildDashboardCard('Stock critique', '$criticalStock', Icons.warning_amber, Colors.red),
-                _buildDashboardCard('Ventes totales', '450 €', Icons.shopping_cart, Colors.blue),
+                _buildDashboardCard(
+                  'Produits stockés',
+                  '$totalProducts',
+                  Icons.inventory,
+                  greenColor,
+                ),
+                _buildDashboardCard(
+                  'Stock critique',
+                  '$criticalStock',
+                  Icons.warning_amber,
+                  redColor,
+                  onTap: () => _showCriticalStockBottomSheet(context),
+                ),
+                _buildDashboardCard(
+                    'Ventes totales',
+                    '$totalSales',
+                    Icons.shopping_cart,
+                    blueColor,
+                ),
               ],
             ),
             SizedBox(height: 4.h),
@@ -139,63 +196,11 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
             SizedBox(height: 2.h), // 2% de la hauteur de l'écran
             _buildReportCard(
-              title: 'Ventes totales',
-              value: '450 €',
-              icon: Icons.monetization_on,
-              color: Colors.blue,
-            ),
-            _buildReportCard(
               title: 'Article le plus vendu',
-              value: 'Produit A (100 unités)',
+              value: '$mostSoldProductName ($mostSoldProductQuantity unités)',
               icon: Icons.local_offer,
               color: Colors.green,
             ),
-            /*
-            SizedBox(height: 4.h), // 4% de la hauteur de l'écran
-
-            // Boutons d'action rapide
-            Text(
-              'Actions rapides',
-              style: TextStyle(
-                fontSize: 20.dp, // Taille de police responsive
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 2.h), // 2% de la hauteur de l'écran
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AddProductPage()),
-                    );
-                  },
-                  icon: Icon(Icons.add, size: 4.w), // 4% de la largeur de l'écran
-                  label: Text(
-                    'Ajouter produit',
-                    style: TextStyle(
-                      fontSize: 14.dp, // Taille de police responsive
-                    ),
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Action pour voir la liste des produits
-                  },
-                  icon: Icon(Icons.list, size: 4.w), // 4% de la largeur de l'écran
-                  label: Text(
-                    'Liste des produits',
-                    style: TextStyle(
-                      fontSize: 14.dp, // Taille de police responsive
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-             */
           ],
         ),
       ),
@@ -246,32 +251,35 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   // Widget pour afficher une carte de statistique
-  Widget _buildDashboardCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 4,
-      child: Container(
-        width: 28.w,
-        padding: EdgeInsets.all(2.h),
-        child: Column(
-          children: [
-            Icon(icon, size: 6.h, color: color),
-            SizedBox(height: 1.h),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18.dp,
-                fontWeight: FontWeight.bold,
-                color: color,
+  Widget _buildDashboardCard(String title, String value, IconData icon, Color color, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Card(
+        elevation: 4,
+        child: Container(
+          width: 28.w,
+          padding: EdgeInsets.all(2.h),
+          child: Column(
+            children: [
+              Icon(icon, size: 6.h, color: color),
+              SizedBox(height: 1.h),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 18.dp,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
-            ),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14.dp,
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14.dp,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

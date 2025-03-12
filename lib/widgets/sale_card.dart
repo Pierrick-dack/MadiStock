@@ -30,118 +30,155 @@ class SaleCard extends StatelessWidget {
     required this.onProductQuantityUpdated,
   });
 
+  Future<int> getSellingPrice(String productName) async {
+    final dbHelper = DatabaseHelper();
+    final products = await dbHelper.getProducts();
+    final product = products.firstWhere((p) => p['name'] == productName);
+    return product['selling_price'];
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 1.h, horizontal: 2.w),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: whiteColor,
-          child: Icon(
-            Icons.shopping_bag_rounded,
-            color: ccaColor,
-            size: 4.h,
-          ),
-        ),
-        title: Text(
-          productName,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16.dp,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Catégorie : $categoryName",
-              style: TextStyle(fontSize: 14.dp),
+    return FutureBuilder<int>(
+      future: getSellingPrice(productName),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting){
+          return const Card(
+            child: ListTile(
+              leading: CircularProgressIndicator(),
+              title: Text('Chargement...'),
             ),
-            Text(
-              "Quantité vendue : $quantity",
-              style: TextStyle(fontSize: 14.dp),
+          );
+        } else if (snapshot.hasError) {
+          return const Card(
+            child: ListTile(
+              leading: Icon(Icons.error),
+              title: Text('Erreur de chargement'),
             ),
-            Text(
-              "Date : $saleDate",
-              style: TextStyle(fontSize: 14.dp),
-            ),
-            Text(
-              "Paiement : $paymentMethod",
-              style: TextStyle(fontSize: 14.dp),
-            ),
-          ],
-        ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.edit,
-                    size: 4.w,
-                    color: ccaColor,
-                  ),
-                  SizedBox(width: 2.w),
-                  Text('Modifier', style: TextStyle(fontSize: 14.dp)),
-                ],
+          );
+        } else {
+          final sellingPrice = snapshot.data ?? 0;
+          final int montant = sellingPrice * quantity;
+          return Card(
+          margin: EdgeInsets.symmetric(vertical: 1.h, horizontal: 2.w),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: whiteColor,
+              child: Icon(
+                Icons.shopping_bag_rounded,
+                color: ccaColor,
+                size: 4.h,
               ),
             ),
-            PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, size: 4.w, color: redColor),
-                  SizedBox(width: 2.w),
-                  Text(
-                    'Supprimer',
-                    style: TextStyle(
-                      fontSize: 14.dp,
-                      color: redColor,
-                    ),
-                  ),
-                ],
+            title: Text(
+              productName,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16.dp,
               ),
             ),
-          ],
-          onSelected: (value) async {
-            if (value == 'edit') {
-              _openEditSaleBottomSheet(context); // Appeler la méthode pour ouvrir le BottomSheet
-            } else if (value == 'delete') {
-              final bool confirm = await showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text(
-                    'Confirmer la suppression',
-                    style: TextStyle(fontSize: 16.dp),
-                  ),
-                  content: Text(
-                    'Êtes-vous sûr de vouloir supprimer cette vente ?',
-                    style: TextStyle(fontSize: 14.dp),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: Text('Annuler', style: TextStyle(fontSize: 14.dp)),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: Text(
-                        'Supprimer',
-                        style: TextStyle(fontSize: 14.dp, color: redColor),
-                      ),
-                    ),
-                  ],
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Catégorie : $categoryName",
+                  style: TextStyle(fontSize: 14.dp),
                 ),
-              );
+                Text(
+                  "Quantité vendue : $quantity",
+                  style: TextStyle(fontSize: 14.dp),
+                ),
+                Text(
+                  "Date : $saleDate",
+                  style: TextStyle(fontSize: 14.dp),
+                ),
+                Text(
+                  "Paiement : $paymentMethod",
+                  style: TextStyle(fontSize: 14.dp),
+                ),
+                Text(
+                  "Montant : $montant",
+                  style: TextStyle(
+                    fontSize: 14.dp,
+                    color: greenColor,
+                  ),
+                ),
+              ],
+            ),
+            trailing: PopupMenuButton(
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.edit,
+                        size: 4.w,
+                        color: ccaColor,
+                      ),
+                      SizedBox(width: 2.w),
+                      Text('Modifier', style: TextStyle(fontSize: 14.dp)),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 4.w, color: redColor),
+                      SizedBox(width: 2.w),
+                      Text(
+                        'Supprimer',
+                        style: TextStyle(
+                          fontSize: 14.dp,
+                          color: redColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              onSelected: (value) async {
+                if (value == 'edit') {
+                  _openEditSaleBottomSheet(context);
+                } else if (value == 'delete') {
+                  final bool confirm = await showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(
+                        'Confirmer la suppression',
+                        style: TextStyle(fontSize: 16.dp),
+                      ),
+                      content: Text(
+                        'Êtes-vous sûr de vouloir supprimer cette vente ?',
+                        style: TextStyle(fontSize: 14.dp),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: Text('Annuler', style: TextStyle(fontSize: 14.dp)),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: Text(
+                            'Supprimer',
+                            style: TextStyle(fontSize: 14.dp, color: redColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
 
-              if (confirm == true) {
-                onDelete(); // Appeler la méthode de suppression
-              }
-            }
-          },
-        ),
-      ),
+                  if (confirm == true) {
+                    onDelete(); // Appeler la méthode de suppression
+                  }
+                }
+              },
+            ),
+          ),
+        );
+        }
+      }
     );
   }
 

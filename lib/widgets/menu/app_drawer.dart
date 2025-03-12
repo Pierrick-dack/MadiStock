@@ -45,7 +45,10 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.category_rounded, color: ccaColor),
+            leading: const Icon(
+              Icons.production_quantity_limits_rounded,
+              color: ccaColor,
+            ),
             title: const Text('Produits & Quantité'),
             onTap: () {
               Navigator.push(

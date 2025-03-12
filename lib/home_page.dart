@@ -16,9 +16,9 @@ class _HomePageState extends State<HomePage> {
 
   // Liste des pages associées aux onglets
   final List<Widget> _pages = [
-    DashboardPage(),
-    ProductListPage(),
-    SellsPage(),
+    const DashboardPage(),
+    const ProductListPage(),
+    const SellsPage(),
   ];
 
   @override
@@ -63,7 +63,7 @@ class _HomePageState extends State<HomePage> {
         color: isActive ? whiteColor : Colors.transparent,
         shape: BoxShape.circle,
       ),
-      padding: EdgeInsets.all(6), // Marge intérieure
+      padding: const EdgeInsets.all(6),
       child: Icon(
         icon,
         color: isActive ? ccaColor : greyColor,

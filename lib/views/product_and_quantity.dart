@@ -98,13 +98,16 @@ class _ProductAndQuantityListState extends State<ProductAndQuantityList> {
                 itemBuilder: (context, productIndex) {
                   final product = productsInCategory[productIndex];
                   return ListTile(
-                    title: Text(product['name'], style: TextStyle(fontSize: 16.dp)),
+                    title: Text(
+                      product['name'],
+                      style: TextStyle(fontSize: 16.dp),
+                    ),
                     subtitle: Text(
-                      'Quantité initiale: ${product['initial_quantity']}',
+                      'Quantité : ${product['initial_quantity']}',
                       style: TextStyle(fontSize: 14.dp),
                     ),
                     trailing: Text(
-                      'Bénéfice total: ${product['initial_profit']}',
+                      'Total : ${product['initial_profit']} Fcfa',
                       style: TextStyle(
                         fontSize: 14.dp,
                         color: greenColor,
